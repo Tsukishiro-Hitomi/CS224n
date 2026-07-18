@@ -18,7 +18,10 @@
                 	\btheta_{t+1} &\gets \btheta_t - \alpha \textbf{m}_{t+1}
                 }
                 where $\beta_1$ is a hyperparameter between 0 and 1 (often set to  0.9). \textbf{Briefly explain in 2--4 sentences} (you don't need to prove mathematically, just give an intuition) how using $\bm$ stops the updates from varying as much and why this low variance may be helpful to learning, overall.\newline
-              
+           
+            \begin{answer}
+                By keeping a rolling average, $\mathbf{m}$ acts like physical inertia; when gradients oscillate wildly across minibatches, their opposing components cancel each other out, which dampens the variance in those unstable directions. Conversely, in directions where gradients consistently point toward the minimum, momentum accumulates to accelerate progress. This reduced variance smoothes out the optimization path, preventing the model from getting stuck in erratic oscillations and ultimately leading to faster, more stable convergence.
+            \end{answer}
                 
             \subpart[2] Adam extends the idea of {\it momentum} with the trick of {\it adaptive learning rates} by keeping track of  $\bv$, a rolling average of the magnitudes of the gradients:
                 \alns{
@@ -28,7 +31,9 @@
                 }
                 where $\odot$ and $/$ denote elementwise multiplication and division (so $\bz \odot \bz$ is elementwise squaring) and $\beta_2$ is a hyperparameter between 0 and 1 (often set to  0.99). Since Adam divides the update by $\sqrt{\bv}$, which of the model parameters will get larger updates?  Why might this help with learning? \textbf{Briefly explain in 2--4 sentences}.
                 
-           
+           \begin{answer}
+                Model parameters that have infrequent or small gradients will receive larger updates because dividing by a smaller rolling magnitude ($\sqrt{\mathbf{v}}$) scales up their effective learning rate. This helps with learning by ensuring that features or parameters which rarely receive updates aren't neglected, allowing the model to escape flat regions and progress more uniformly across all dimensions.
+           \end{answer}
                 
                 \end{subparts}
         
@@ -48,9 +53,14 @@
             \subpart[2]
                 What must $\gamma$ equal in terms of $p_{\text{drop}}$? Briefly justify your answer or show your math derivation using the equations given above.
                 
+                \begin{answer}
+                    $\gamma = \frac{1}{1-p_{drop}}$
+                \end{answer}
             
           \subpart[2] Why should dropout be applied during training? Why should dropout \textbf{NOT} be applied during evaluation? \textbf{Briefly explain in 2--4 sentences}. \textbf{Hint:} it may help to look at the dropout paper linked. \newline
-          
+                \begin{answer}
+                    Dropout is applied during training to act as a regularizer by randomly deactivating neurons, which prevents them from co-adapting and forces the network to learn robust, redundant features. However, it should not be applied during evaluation because we want the model to output deterministic, fully reproducible predictions using the combined knowledge of all learned neurons.
+                \end{answer}
          
         \end{subparts}
 

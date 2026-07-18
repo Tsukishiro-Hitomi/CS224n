@@ -49,6 +49,11 @@ Prove that the naive-softmax loss (Equation \ref{naive-softmax}) is the same as 
 
 Your answer should be one line. You may describe your answer in words.
 
+\begin{answer}
+    Since $\by$ is one-hot, only its $o$-th entry contributes: $-\sum_{w\in\text{Vocab}}\by_w\log(\hat{\by}_w)=-\log(\hat{\by}_o)$.
+\end{answer}
+
+
 
 % Question 1-B
 \part[6]
@@ -67,6 +72,30 @@ Your answer should be one line. You may describe your answer in words.
 
 \end{enumerate}
 
+\begin{answer}
+    \begin{enumerate}
+        \item
+        \begin{align*}
+        \frac{\partial \bJ_{\text{naive-softmax}}(\bv_c,o,\bU)}{\partial \bv_c}
+        &= \frac{\partial}{\partial \bv_c}\left[-\bu_o^\top\bv_c
+        + \log\left(\sum_{w\in\text{Vocab}}\exp(\bu_w^\top\bv_c)\right)\right] \\
+        &= -\bu_o + \frac{\sum_{w\in\text{Vocab}}\exp(\bu_w^\top\bv_c)\bu_w}
+        {\sum_{w\in\text{Vocab}}\exp(\bu_w^\top\bv_c)} \\
+        &= -\bu_o + \sum_{w\in\text{Vocab}}\hat{\by}_w\bu_w \\
+        &= \bU(\hat{\by}-\by).
+        \end{align*}
+
+        \item
+        \begin{align*}
+        \frac{\partial \bJ_{\text{naive-softmax}}(\bv_c,o,\bU)}{\partial \bv_c}=\mathbf{0}
+        \quad \Longleftrightarrow \quad
+        \bU(\hat{\by}-\by)=\mathbf{0}.
+        \end{align*}
+
+        \item
+        Subtracting $-\bu_o$ moves $\bv_c$ toward the true outside vector $\bu_o$. Subtracting $\sum_w\hat{\by}_w\bu_w$ moves $\bv_c$ away from outside vectors, weighted by their predicted probabilities.
+    \end{enumerate}
+\end{answer}
 
 
 % Question 1-C
@@ -75,15 +104,46 @@ In many downstream applications using word embeddings, L2 normalized vectors (e.
 
 \textbf{Hint:} Consider the case where $\mathbf{u}_x = \alpha\mathbf{u}_y$ for some words $x \neq y$ and some scalar $\alpha$. When $\alpha$ is positive, what will be the value of normalized  $\mathbf{u}_x$ and normalized $\mathbf{u}_y$? How might $\mathbf{u}_x$ and $\mathbf{u}_y$ be related for such a normalization to affect or not affect the resulting classification?
 
+\begin{answer}
+    If $\mathbf{u}_x = \alpha \mathbf{u}_y$ for some $\alpha > 0$, then after L2 normalization we have $\mathbf{u}_x / \|\mathbf{u}_x\|_2 = \mathbf{u}_y / \|\mathbf{u}_y\|_2$, so the information in their magnitudes is lost. This matters when the downstream classification depends on vector length, but it does not matter when the task only depends on direction.
+\end{answer}
 
 % Question 1-D
 \part[1]
 Write down the partial derivative of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$ with respect to $\bU$. Please break down your answer in terms of the column vectors $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_1}$, $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_2}$, $\cdots$, $\frac{\partial \bJ(\bv_c, o, \bU)}{\partial \bu_{|\text{Vocab}|}}$ (do not further expand these terms). No derivations are necessary, just an answer in the form of a matrix.
 
+\begin{answer}
+    \[
+    \frac{\partial \bJ_{\text{naive-softmax}}(\bv_c,o,\bU)}{\partial \bU}
+    =
+    \begin{bmatrix}
+        \dfrac{\partial \bJ(\bv_c,o,\bU)}{\partial \bu_1} &
+        \dfrac{\partial \bJ(\bv_c,o,\bU)}{\partial \bu_2} &
+        \cdots &
+        \dfrac{\partial \bJ(\bv_c,o,\bU)}{\partial \bu_{|\text{Vocab}|}}
+    \end{bmatrix}.
+    \]
+\end{answer}
 
 % Question 1-E
 \part[5] 
 Compute the partial derivatives of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$ with respect to each of the `outside' word vectors, $\bu_w$'s. There will be two cases: when $w=o$, the true `outside' word vector, and $w \neq o$, for all other words. Please write your answer in terms of $\by$, $\hat{\by}$, and $\bv_c$. In this subpart, you may use specific elements within these terms as well (such as $\by_1$, $\by_2$, $\dots$). Note that $\bu_w$ is a vector while $\by_1, \by_2, \dots$ are scalars. Show your work to receive full credit.
+
+\begin{answer}
+    \begin{align*}
+    \bJ_{\text{naive-softmax}}(\bv_c,o,\bU)
+    &= -\bu_o^\top\bv_c
+    + \log\left(\sum_{x\in\text{Vocab}}\exp(\bu_x^\top\bv_c)\right), \\
+    \frac{\partial \bJ_{\text{naive-softmax}}(\bv_c,o,\bU)}{\partial \bu_w}
+    &= -\by_w\bv_c + \hat{\by}_w\bv_c \\
+    &= (\hat{\by}_w-\by_w)\bv_c \\
+    &=
+    \begin{cases}
+        (\hat{\by}_o-1)\bv_c, & w=o, \\
+        \hat{\by}_w\bv_c, & w\neq o.
+    \end{cases}
+    \end{align*}
+\end{answer}
 
 % Question 1-F
 \item (2 points) As an additional exercise for this problem, you will be taking the derivatives of some common loss functions, which may be used in variations of {\tt word2vec} (such as the negative sampling variant). The Leaky ReLU (Leaky Rectified Linear Unit) activation function is given by Equation \ref{LeakyReLU} and Figure~\ref{fig:leaky_relu}:
@@ -101,6 +161,16 @@ Compute the partial derivatives of $\bJ_{\text{naive-softmax}}(\bv_c, o, \bU)$ w
 
 Where $x$ is a scalar and $0<\alpha <1$, please compute the derivative of $f(x)$ with respect to $x$. You may ignore the case where the derivative is not defined at 0.\footnote{If you're interested in how to handle the derivative at this point, you can read more about the notion of \hyperref[https://en.wikipedia.org/wiki/Subderivative]{subderivatives}.}
 
+\begin{answer}
+    \[
+    \frac{\partial f(x)}{\partial x}
+    =
+    \begin{cases}
+        \alpha, & x < 0, \\
+        1, & x > 0.
+    \end{cases}
+    \]
+\end{answer}
 % Question 1-G
 \item (3 points) The sigmoid function is given by Equation \ref{Sigmoid Function}:
 
@@ -111,4 +181,12 @@ Where $x$ is a scalar and $0<\alpha <1$, please compute the derivative of $f(x)$
 
 Please compute the derivative of $\sigma(x)$ with respect to $x$, where $x$ is a scalar. Please write your answer in terms of $\sigma(x)$. Show your work to receive full credit.
 
+\begin{answer}
+    \begin{align}
+        \frac{\partial \sigma(x)}{\partial x}
+        &= \frac{\partial {\frac{e^x}{e^x+1}}}{\partial x} \\
+        &= \frac{e^x}{(e^x+1)^2} \\
+        &= \sigma(x) \cdot (1-\sigma(x))
+    \end{align}
+\end{answer}
 \end{parts}
