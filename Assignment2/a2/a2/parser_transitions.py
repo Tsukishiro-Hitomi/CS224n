@@ -32,7 +32,12 @@ class PartialParse(object):
         ### Note: The root token should be represented with the string "ROOT"
         ### Note: If you need to use the sentence object to initialize anything, make sure to not directly 
         ###       reference the sentence object.  That is, remember to NOT modify the sentence object. 
-
+        self.stack = []
+        self.stack.append("ROOT")
+        self.buffer = []
+        for word in sentence:
+            self.buffer.append(word)
+        self.dependencies = []
 
         ### END YOUR CODE
 
@@ -51,6 +56,25 @@ class PartialParse(object):
         ###         1. Shift
         ###         2. Left Arc
         ###         3. Right Arc
+        if transition == "S":
+            if (len(self.buffer) == 0):
+                return
+            w = self.buffer.pop(0)
+            self.stack.append(w)
+        elif transition == "LA":
+            if (len(self.stack) < 2):
+                return
+            head = self.stack.pop(-1)
+            dependent = self.stack.pop(-1)
+            self.stack.append(head)
+            self.dependencies.append((head, dependent))
+        else:
+            if (len(self.stack) < 2):
+                return
+            dependent = self.stack.pop(-1)
+            head = self.stack.pop(-1)
+            self.stack.append(head)
+            self.dependencies.append((head, dependent))      
 
 
         ### END YOUR CODE
@@ -102,7 +126,24 @@ def minibatch_parse(sentences, model, batch_size):
     ###             contains references to the same objects. Thus, you should NOT use the `del` operator
     ###             to remove objects from the `unfinished_parses` list. This will free the underlying memory that
     ###             is being accessed by `partial_parses` and may cause your code to crash.
-
+    partial_parses = []
+    for sentence in sentences:
+        partial_parses.append(PartialParse(sentence))
+    unfinished_parses = partial_parses[:]
+    # 浅拷贝：删除被拷贝的列表的元素，不会影响原列表
+    # 原因：浅拷贝本质为创建了一个新的外层列表容器，内部元素仍然指向相同的内存地址。删除操作断开了拷贝列表与
+    # 内部元素引用之间的关系，没有销毁元素本身
+    while len(unfinished_parses) != 0:
+        upper_bound = min(batch_size, len(unfinished_parses))
+        transitions = model.predict(unfinished_parses[0: upper_bound])
+        for i in range(upper_bound - 1, -1, -1):
+            trans = transitions[i]
+            unfinished_parses[i].parse_step(trans)
+            if len(unfinished_parses[i].stack) == 1 and len(unfinished_parses[i].buffer) == 0:
+                unfinished_parses.pop(i)
+    for i in range(len(partial_parses)):
+        dependencies.append(partial_parses[i].dependencies)
+            
 
     ### END YOUR CODE
 
