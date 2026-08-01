@@ -62,7 +62,43 @@ class CausalAttention(nn.Module):
     ) -> Float[Tensor, "batch seq_len d_model"]:
 
         # TODO, complete 
-        return torch.empty(1)
+        # compute Q K V
+        # shape: (N, L, h * d)
+        Q = self.W_q(x)
+        K = self.W_k(x)
+        V = self.W_v(x)
+
+        N, L, H = x.shape
+        d = self.d_attention
+        h = H // d
+
+        # (N, h, L, d)
+        Q = Q.reshape(N, L, h, d)
+        Q = Q.permute(0, 2, 1, 3)
+
+        K = K.reshape(N, L, h, d)
+        K = K.permute(0, 2, 1, 3)
+
+        V = V.reshape(N, L, h, d)
+        V = V.permute(0, 2, 1, 3)
+
+        # scores & attn_weights: (N, h, L, L)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / (math.sqrt(d))
+        scores = scores.masked_fill(self.causal_mask[:, :, :L, :L] == 0, float('-inf'))
+        attn_weights = F.softmax(scores, -1)
+
+        # context: (N, h, L, d)
+        context = torch.matmul(attn_weights, V)
+
+        # result: (N, L, h * d)
+        # .contiguous: after 'permute' operation: the matrix maybe incontiguous in memory.
+        result = context.permute(0, 2, 1, 3).contiguous()
+        result = result.reshape(N, L, h * d)
+
+        # O: (h * d, h * d)
+        result = self.W_o(result)
+
+        return result
 
 
 
@@ -89,7 +125,10 @@ class MLP(nn.Module):
     ) -> Float[Tensor, "batch seq_len d_model"]:
 
         # TODO, complete
-        return torch.empty(1)
+        x = self.fc1(x)
+        x = self.gelu(x)
+        x = self.fc2(x)
+        return x
         
 
 class DecoderBlock(nn.Module):
@@ -107,7 +146,9 @@ class DecoderBlock(nn.Module):
     ) -> Float[Tensor, "batch seq_len d_model"]:
 
         # TODO complete
-        return torch.empty(1)
+        x = x + self.attention(self.pre_layer_norm(x))
+        x = x + self.mlp(self.post_layer_norm(x))
+        return x
 
 
 class Transformer(nn.Module):
@@ -149,7 +190,19 @@ class Transformer(nn.Module):
     ) -> Float[Tensor, "batch seq_len vocab_size"]:
 
         # TODO, complete
-        return torch.empty(1)
+        # (B, L)->(B, L, D)
+        B, L = x.shape
+        token_emb = self.embeddings(x)
+        positions = torch.arange(L, device=x.device)
+        pos_emb = self.position_embeddings(positions)
+        out = token_emb + pos_emb
+
+        for block in self.backbone:
+            out = block(out)
+        out = self.final_layer_norm(out)
+        # (B, L, D)->(B, L, V)
+        out = self.lm_head(out)
+        return out
 
     @torch.no_grad()
     def generate(
@@ -159,7 +212,17 @@ class Transformer(nn.Module):
     ) -> Int[Tensor, "batch_size seq_len+num_new_tokens"]:
 
         # TODO, complete
-        return torch.empty(1)
+        B, L = x.shape
+        for i in range(num_new_tokens):
+            # (B, L, V)
+            logits = self.forward(x)
+            # (B, V) 
+            # only take the last word's prediction
+            next_logit = logits[:, -1, :]
+            # (B, 1)
+            new_token = torch.argmax(next_logit, dim=-1, keepdim=True)
+            x = torch.cat([x, new_token], dim=1)
+        return x
 
 
     def get_loss_on_batch(
@@ -168,7 +231,21 @@ class Transformer(nn.Module):
     ) -> Float[Tensor, ""]:
 
         # TODO, complete
-        return torch.empty(1)
+        B, L = input_ids.shape
+        # (B, L-1)
+        inputs = input_ids[:, :-1]
+        # (B, L-1)
+        targets = input_ids[:, 1:]
+
+        # (B, L-1, V)
+        logits = self.forward(inputs)
+        _, _, V = logits.shape
+
+        # (B * (L - 1), v)
+        logits = logits.reshape(B * (L - 1), V)
+        targets = targets.reshape(B * (L - 1), )
+
+        return F.cross_entropy(logits, targets)
 
 
     @classmethod
@@ -199,7 +276,6 @@ class Transformer(nn.Module):
 
 if __name__ == "__main__":
 
-    # Uncomment this if you are not logged in
-    # huggingface_hub.login()
+    huggingface_hub.login()
     
     model = Transformer.from_pretrained()

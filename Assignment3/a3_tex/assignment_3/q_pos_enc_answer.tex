@@ -1,5 +1,86 @@
 
 
 \begin{answer}
+\section*{2(a) Permuting the input}
+\begin{enumerate}
+    \item Let
+    \[
+        \mathbf{X}_{\text{perm}} = \mathbf{P}\mathbf{X}.
+    \]
+    Then the query, key, and value matrices become
+    \[
+        \mathbf{Q}_{\text{perm}} = \mathbf{P}\mathbf{Q},
+        \qquad
+        \mathbf{K}_{\text{perm}} = \mathbf{P}\mathbf{K},
+        \qquad
+        \mathbf{V}_{\text{perm}} = \mathbf{P}\mathbf{V}.
+    \]
+    Therefore,
+    \begin{align*}
+        \mathbf{H}_{\text{perm}}
+        &= \operatorname{softmax}\left(
+            \frac{\mathbf{Q}_{\text{perm}}\mathbf{K}_{\text{perm}}^\top}{\sqrt{d}}
+        \right)\mathbf{V}_{\text{perm}} \\
+        &= \operatorname{softmax}\left(
+            \frac{\mathbf{P}\mathbf{Q}\mathbf{K}^\top\mathbf{P}^\top}{\sqrt{d}}
+        \right)\mathbf{P}\mathbf{V} \\
+        &= \mathbf{P}
+        \operatorname{softmax}\left(
+            \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d}}
+        \right)
+        \mathbf{P}^\top\mathbf{P}\mathbf{V} \\
+        &= \mathbf{P}\mathbf{H}.
+    \end{align*}
+    Since $\mathbf{P}\mathbf{1} = \mathbf{1}$, we also have
+    \[
+        \mathbf{H}_{\text{perm}}\mathbf{W}_1 + \mathbf{1}\cdot\mathbf{b}_1
+        =
+        \mathbf{P}
+        \left(\mathbf{H}\mathbf{W}_1 + \mathbf{1}\cdot\mathbf{b}_1\right).
+    \]
+    Using the given property of ReLU,
+    \begin{align*}
+        \mathbf{Z}_{\text{perm}}
+        &= \operatorname{ReLU}\left(
+            \mathbf{H}_{\text{perm}}\mathbf{W}_1 + \mathbf{1}\cdot\mathbf{b}_1
+        \right)\mathbf{W}_2
+        + \mathbf{1}\cdot\mathbf{b}_2 \\
+        &= \mathbf{P}
+        \operatorname{ReLU}\left(
+            \mathbf{H}\mathbf{W}_1 + \mathbf{1}\cdot\mathbf{b}_1
+        \right)\mathbf{W}_2
+        + \mathbf{P}\mathbf{1}\cdot\mathbf{b}_2 \\
+        &= \mathbf{P}
+        \left[
+            \operatorname{ReLU}\left(
+                \mathbf{H}\mathbf{W}_1 + \mathbf{1}\cdot\mathbf{b}_1
+            \right)\mathbf{W}_2
+            + \mathbf{1}\cdot\mathbf{b}_2
+        \right] \\
+        &= \mathbf{P}\mathbf{Z}.
+    \end{align*}
 
+    \item This means the Transformer layer is permutation equivariant when no position information is added: if we shuffle the input tokens, the output is shuffled in exactly the same way. This is problematic for text because word order changes meaning. For example, ``the dog chased the cat'' and ``the cat chased the dog'' contain the same words but have different meanings, so the model needs information about token positions.
+\end{enumerate}
+
+\section*{2(b) Position embeddings}
+\begin{enumerate}
+    \item Yes. After adding position embeddings, the model receives
+    \[
+        \mathbf{X}_{\text{pos}} = \mathbf{X} + \Phi,
+    \]
+    so each token representation contains both word identity and position information. If the input tokens are permuted but the position embeddings remain tied to the original sequence positions, the model can distinguish the same word appearing in different locations. Thus the model is no longer forced to treat a sentence as just an unordered set of tokens.
+
+    \item Mathematically, no. The position embedding depends only on the position $t$. In particular, the first sine-cosine pair is
+    \[
+        \left(\sin t, \cos t\right).
+    \]
+    If two positions $t$ and $s$ had the same position embedding, then we would need
+    \[
+        \sin t = \sin s
+        \qquad \text{and} \qquad
+        \cos t = \cos s,
+    \]
+    which implies $t - s = 2\pi m$ for some integer $m$. Since $t$ and $s$ are integer positions and $2\pi$ is irrational, this can only happen when $m=0$, so $t=s$. Therefore two different positions cannot have exactly the same sinusoidal position embedding.
+\end{enumerate}
 \end{answer}

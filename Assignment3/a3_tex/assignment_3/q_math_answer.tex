@@ -1,4 +1,69 @@
-
 \begin{answer}
-    
+\section*{1(a) Copying in Attention}
+
+\begin{enumerate}
+    \item If there exists an index $j$ such that $k_j^\top q$ is much larger than $k_i^\top q$ for every $i \ne j$, then the softmax is sharply peaked at $j$, so $\alpha_j \gg \sum_{i \ne j} \alpha_i$.
+
+    \item Under this condition, $\alpha_j \approx 1$ and $\alpha_i \approx 0$ for all $i \ne j$; hence,
+    \[
+        c = \sum_{i=1}^{n} \alpha_i v_i \approx v_j.
+    \]
+    Thus, attention effectively copies the value vector $v_j$ to the output.
+\end{enumerate}
+
+\section*{1(b) An average of two}
+Let $q = \lambda(k_a + k_b)$, where $\lambda > 0$ is large. Since the keys are orthogonal and have unit norm,
+\[
+    k_i^\top q =
+    \begin{cases}
+        \lambda, & i \in \{a,b\}, \\
+        0, & i \notin \{a,b\}.
+    \end{cases}
+\]
+Therefore,
+\[
+    \alpha_a = \alpha_b
+    = \frac{e^\lambda}{2e^\lambda + (n-2)}
+    \xrightarrow[\lambda \to \infty]{} \frac{1}{2},
+    \qquad
+    \alpha_i \xrightarrow[\lambda \to \infty]{} 0 \quad (i \notin \{a,b\}).
+\]
+Hence,
+\[
+    c = \sum_{i=1}^{n} \alpha_i v_i
+    \approx \frac{1}{2}(v_a + v_b).
+\]
+\section*{1(c) Drawbacks of single-headed attention}
+\begin{enumerate}
+    \item Similarly, we can choose
+    \[
+        q = \lambda(\mu_a + \mu_b),
+    \]
+    where $\lambda > 0$ is large. Since $\alpha$ is vanishingly small, each $k_i$ is very close to its mean $\mu_i$. Thus $k_a^\top q \approx k_b^\top q \approx \lambda$, while $k_i^\top q \approx 0$ for $i \notin \{a,b\}$. Therefore the softmax gives nearly equal weight to $v_a$ and $v_b$, so $c \approx \frac{1}{2}(v_a + v_b)$.
+
+    \item Using the same query $q = \lambda(\mu_a + \mu_b)$, the output $c$ will have much higher variance across different samples. The score for $b$ remains stable, since $k_b$ stays close to $\mu_b$ and hence $k_b^\top q \approx \lambda$. However, $k_a$ has large variance in its magnitude along the $\mu_a$ direction, so $k_a^\top q$ can be much larger or smaller than $\lambda$.
+
+    As a result, the attention weight on $v_a$ changes significantly from sample to sample. When $k_a^\top q$ is large, the softmax may put most of its mass on $v_a$, making $c \approx v_a$. When $k_a^\top q$ is smaller than $k_b^\top q$, the softmax may instead put most of its mass on $v_b$, making $c \approx v_b$. Only when the two scores are close will $c$ be near $\frac{1}{2}(v_a + v_b)$. Thus, unlike part (i), single-headed attention does not reliably produce the desired average; its output fluctuates between being biased toward $v_a$ and being biased toward $v_b$.
+\end{enumerate}
+\section*{1(d) Benefits of multi-headed attention}
+\begin{enumerate}
+    \item Choose
+    \[
+        q_1 = \lambda \mu_a,
+        \qquad
+        q_2 = \lambda \mu_b,
+    \]
+    where $\lambda > 0$ is large. Since the keys are close to their means and the means are mutually orthogonal, the first head puts almost all of its attention on $v_a$, so $c_1 \approx v_a$. Similarly, the second head puts almost all of its attention on $v_b$, so $c_2 \approx v_b$. Therefore the final output is
+    \[
+        \frac{1}{2}(c_1 + c_2)
+        \approx \frac{1}{2}(v_a + v_b).
+    \]
+
+    \item Using the same queries, $c_2$ remains stable across samples because $k_b$ stays close to $\mu_b$, so the second head reliably outputs $c_2 \approx v_b$. The first head may have higher variance because $k_a$ has large variance in magnitude along the $\mu_a$ direction. When $k_a^\top q_1$ is large, $c_1 \approx v_a$; when it is smaller, the attention of the first head becomes less sharply concentrated on $v_a$.
+
+    However, this variance mostly affects only $c_1$. Unlike the single-headed case, $v_a$ and $v_b$ no longer compete inside the same softmax distribution. Thus the final output $\frac{1}{2}(c_1 + c_2)$ is much more stable: it consistently contains the contribution from $v_b$, while the uncertainty from $k_a$ only changes how strongly the output includes $v_a$.
+\end{enumerate}
+
+\section*{1(e)}
+Multi-headed attention overcomes the drawback of single-headed attention by allowing different heads to attend to different value vectors independently. In the single-headed case, all desired values must compete within one softmax distribution, so a large change in one key can steal attention mass from the others and make the output fluctuate. In the multi-headed case, each head can focus on one target value, and the final averaging step combines these separate outputs. As a result, the model can represent multiple features more reliably, with lower variance in the final output.
 \end{answer}

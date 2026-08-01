@@ -149,11 +149,15 @@ def train(
         optimizer.step()
 
         losses.append(loss.item())
+        if (num_steps_completed + 1) % 10 == 0:
+            tqdm.write(f"Step {num_steps_completed + 1}: loss = {loss.item():.6f}")
 
         num_steps_completed += 1
 
 
     # Done with training, plot results in single plot
+    if losses:
+        print(f"Final loss: {losses[-1]:.6f}")
     plot_results(losses, grad_norms, save_path="./losses_and_grad_norms.png")
 
 
@@ -175,4 +179,3 @@ if __name__ == "__main__":
         batch_size=16,
         max_steps=100,
     )
-
