@@ -1,3 +1,127 @@
 \begin{answer}
 
+\textbf{(b)(i) Benchmarking models A and B on GSM8K}
+
+Both models were evaluated on all 100 problems in \texttt{gsm8k\_first\_100.jsonl}
+using the provided \texttt{standard\_prompt\_template} and
+\texttt{standard\_output\_extractor}. The metric is exact match: the extracted
+numerical answer is compared against the \texttt{numerical\_answer} field, and a
+generation from which no answer can be extracted is counted as incorrect.
+Unparseable generations are also reported separately, since they measure
+instruction-following rather than arithmetic ability.
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Model & Correct & Unparseable & Wrong answer & Accuracy \\
+\midrule
+A & 95 & 0 & 5  & \textbf{95\%} \\
+B & 54 & 2 & 44 & \textbf{54\%} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Model A scores \textbf{95\%} and model B scores \textbf{54\%}. The two models are
+queried through the same interface with the same prompt, so the 41-point gap is
+attributable entirely to their differing system prompts. Model B's errors are
+overwhelmingly wrong answers (44) rather than malformed output (2), so it is
+producing well-formatted but incorrect arithmetic rather than failing to follow
+the output format.
+
+\vspace{1em}
+\textbf{(b)(ii) An improved prompt for model A}
+
+\textbf{My prompt.}
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+Solve the following problem using as many steps of reasoning as you need,
+showing each calculation. Before you commit to an answer, check your work
+carefully.
+
+Problem: {question}
+
+Now report your result. The LAST line of your response must be the final
+numerical answer, formatted exactly like this:
+
+#### <numerical_answer>
+
+Rules for that last line:
+- It must begin with the four characters #### followed by a space.
+- Put only a plain number after "####" -- no LaTeX, no \boxed{}, no dollar
+  signs, no units, no commas, no bold markers.
+- Even if you already stated the answer during your reasoning, you must still
+  repeat it on this final #### line. A bare number on its own is not
+  acceptable.
+- Write nothing at all after that line.
+
+For example, if the answer is 42, the last line must read exactly:
+
+#### 42
+\end{lstlisting}
+
+\textbf{Why I expected this to improve performance.}
+
+The standard prompt contains the instruction ``with two or fewer steps of
+reasoning.'' GSM8K problems are multi-step arithmetic word problems, so this is a
+\emph{binding} constraint: it caps the number of intermediate results the model
+can write down below what many of the problems actually require. Since a
+decoder-only model does its arithmetic in the tokens it emits, suppressing those
+tokens suppresses the computation itself. My prompt removes the cap, asks for
+each calculation to be shown, and adds an explicit self-check step before the
+model commits to an answer.
+
+Lifting the reasoning cap, however, changes the register of the response from a
+terse answer to a long worked solution --- and in that register the model's
+strong habit is to close with LaTeX, e.g.\ \verb|$\boxed{42}$|, abandoning the
+required \verb|####| marker entirely. An earlier draft of this prompt lost a
+substantial fraction of its outputs to exactly this failure. The format rules in
+the second half of the prompt exist to counter it, and they use three levers:
+the format requirement is placed \emph{after} the problem rather than before it,
+so it is the most recent instruction in context; it asks for the answer on the
+\emph{last} line rather than the ``only'' line, which is compatible with showing
+extensive reasoning instead of contradicting it; and it explicitly names the
+competing formats (LaTeX, \verb|\boxed{}|, a bare number) that were observed to
+displace the marker.
+
+\textbf{Results.}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.62\textwidth]{gsm8k_prompt_comparison.png}
+\caption{Model A's accuracy on the 100 GSM8K problems under the standard prompt
+and under my improved prompt.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Prompt & Correct & Unparseable & Wrong answer & Accuracy \\
+\midrule
+Standard & 95 & 0 & 5 & 95\% \\
+Improved & 98 & 0 & 2 & \textbf{98\%} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Did performance improve?}
+
+Yes, but by a modest margin: accuracy rose from 95\% to \textbf{98\%}, a gain of
+3 points. The gain is a genuine improvement in arithmetic rather than a
+formatting artifact --- both prompts produced 0 unparseable generations in this
+run, and the number of substantively wrong answers fell from 5 to 2. In other
+words the improved prompt fixed 3 of the 5 problems the standard prompt got
+wrong, and broke none of the 95 it got right.
+
+Two caveats on the size of this effect. First, the margin is small relative to
+sampling noise: at $p \approx 0.96$ with $n = 100$, the standard error of a
+single run is about 2 points, so a 3-point difference measured once is
+suggestive rather than conclusive. Establishing it properly would require
+repeated runs with error bars, or a larger evaluation set. Second, and more
+fundamentally, the baseline leaves very little room to improve --- with the
+standard prompt already at 95\%, only 5 problems were available to fix, so the
+maximum achievable gain was 5 points and this prompt captured 3 of them. A
+ceiling effect of this kind means the experiment cannot strongly distinguish a
+good prompt from a very good one; the remaining 2 failures may simply be
+problems this model cannot solve at any prompt.
+
 \end{answer}

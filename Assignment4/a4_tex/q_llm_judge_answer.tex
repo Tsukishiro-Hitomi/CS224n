@@ -1,4 +1,277 @@
-
 \begin{answer}
+
+\textbf{(b) How the evaluation was conducted}
+
+For each of the 30 instructions in \texttt{alpaca\_eval\_first\_30.jsonl} I
+sampled one response from model E and one from model F, passing the instruction
+as a single user turn with no additional prompting. I then built a judge prompt
+containing the instruction and both responses, queried \textbf{model Z} with it,
+and parsed a preference out of Z's reply. Win rates are the fraction of the 30
+problems on which each model was preferred.
+
+I ran this whole procedure \textbf{twice}: once with model E's response placed
+first in the judge prompt, and once with model F's placed first, keeping each
+label attached to its true model. The reason is given in part (c) --- the judge
+turns out to be strongly sensitive to presentation order, so a single order
+does not yield an interpretable win rate. Every model response and judge reply
+was written to a \texttt{.jsonl} file as it was produced, which is what parts (c)
+and (d) analyse.
+
+\textbf{The judge prompt.} Model E first (the position-swapped variant is
+identical with the two response blocks, the two listed tags, and the worked
+example exchanged):
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+You will be given two responses from different models to the same user query.
+Compare them objectively and comprehensively, then select the better one.
+
+Query: {query}
+
+response_E: {response_E}
+
+response_F: {response_F}
+
+Now report your result. The LAST line of your response must be your final
+choice, formatted exactly like this:
+
+#### <MODEL_E_BETTER>
+
+or
+
+#### <MODEL_F_BETTER>
+
+For example, if you think responce_E is better, the last line must read
+exactly:
+
+#### <MODEL_E_BETTER>
+\end{lstlisting}
+
+\textbf{How scores were extracted.} The judge writes free-form prose, so the
+prompt above requires it to end with one of two fixed sentinel tags on its final
+line. Extraction applies the regular expression
+\texttt{\#\#\#\#\textvisiblespace(<MODEL\_[EF]\_BETTER>)} and takes the
+\textbf{last} match in the reply. Taking the last rather than the first match
+matters: the judge routinely restates both options while reasoning --- writing
+things like ``\texttt{\#\#\#\# <MODEL\_E\_BETTER> would be wrong here}''
+mid-paragraph --- so the first match often captures a mention rather than the
+verdict. If no tag matches at all the function returns
+\texttt{<NO\_PREFERENCE\_FOUND>} and the comparison is excluded from the win
+rate. In practice this never fired: all 60 judge replies across both runs
+contained an extractable tag.
+
+\textbf{Results, and which model was better.}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{judge_win_rates.png}
+\caption{Judge win rates for models E and F, shown separately for each
+presentation order and pooled over both. The dashed line marks the 50\% a
+position-indifferent judge would produce.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Presentation order & Model E win rate & Model F win rate \\
+\midrule
+Model E shown first & 30/30 \;(100\%) & 0/30 \;(0\%) \\
+Model F shown first & 11/30 \;(37\%)  & 19/30 \;(63\%) \\
+\midrule
+Pooled (counterbalanced) & \textbf{41/60 \;(68\%)} & 19/60 \;(32\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Model E is judged the better model}, winning 68\% of the 60
+counterbalanced comparisons. That headline number should be read with the two
+caveats established in parts (c) and (d): it depends on averaging over
+presentation orders, since either order on its own gives a wildly different
+answer (100\% versus 37\%), and model E is the longer response in every single
+comparison, so ``E is better'' cannot be separated from ``the judge prefers
+length'' using this data.
+
+\vspace{1em}
+\textbf{(c) Comparing my own preferences against the judge's}
+
+I inspected the first 5 AlpacaEval problems together with model E's response,
+model F's response, and the judge's full response for each.
+
+\textbf{Agreement with the judge.} Of the 5 problems I inspected, I
+\textbf{agreed} with the judge on \textbf{2} and \textbf{disagreed} on
+\textbf{2}. On the remaining problem I had no clear preference between the two
+responses --- both were accurate and well organised, and I could not honestly
+say either was more useful --- so I have not scored it either way. Notably, the
+judge expressed no such indecision anywhere: it returned a definite winner on
+all 30 problems and never once declined to choose.
+
+\textbf{An example where I disagree.} This is problem index 0 in
+\texttt{llm\_judge\_results.jsonl}; the excerpts below are shortened, and the
+full texts are in that file.
+
+\textbf{AlpacaEval query:}
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+What are the names of some famous actors that started their careers on Broadway?
+\end{lstlisting}
+
+\textbf{Model E's response} (1120 output tokens, 15 actors named):
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+Broadway has long been a hallowed ground for aspiring actors, a proving ground
+where talent is honed and stars are often born. Many of the most recognizable
+and beloved actors in film and television today owe their early careers to the
+bright lights of the Great White Way. Here are some of the most famous actors
+whose journeys began on the Broadway stage:
+
+**Musical Theatre Maestros and Dramatic Powerhouses:**
+
+*   **Meryl Streep:** While she's now an icon of cinema, Meryl Streep's
+    theatrical roots are deep. She made her Broadway debut in the 1975
+    production of *Trelawney of the 'Wells'* and quickly established herself as
+    a formidable stage actress with roles in *27 Wagons Full of Cotton* and
+    *Secret Service*. Her early theatrical work showcased the incredible range
+    and emotional depth that would later define her legendary film career.
+
+    [... 14 further actors, each with a similar paragraph ...]
+\end{lstlisting}
+
+\textbf{Model F's response} (879 output tokens, 20 actors named):
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+Broadway has been a launchpad for countless incredibly talented actors who went
+on to achieve massive fame in film and television. Here are some of the most
+famous ones, categorized for clarity:
+
+**From Musicals to Stardom:**
+
+*   **Audra McDonald:** A true Broadway legend with six Tony Awards, she's also
+    a celebrated television and film actress.
+
+    [... 19 further actors, each in one or two lines ...]
+\end{lstlisting}
+
+\textbf{Judge's response} (conclusion; it chose model E):
+
+\begin{lstlisting}[language={},numbers=none,basicstyle=\footnotesize\ttfamily,frame=single]
+Model E's strength lies in its detailed descriptions for each actor. It goes
+beyond just naming them and provides a brief narrative about their Broadway
+beginnings [...]
+
+Model F includes a slightly wider range of actors, bringing in names like Lea
+Michele, Matthew Morrison, Sara Bareilles, Anna Kendrick, Al Pacino [...]
+
+While Model F offers a broader selection of names, Model E provides a richer,
+more informative experience for the names it does include. The depth of detail
+in Model E makes it slightly more valuable for someone looking to understand
+*how* these actors started on Broadway.
+
+#### <MODEL_E_BETTER>
+\end{lstlisting}
+
+\textbf{Why I disagree.} The query asks for \emph{names}. Model F returns 20 of
+them in 3{,}697 characters; model E returns 15 in 5{,}429. F therefore delivers
+33\% more of the requested content in 32\% less text, and reaches its first name
+after 231 characters of preamble against E's 419. On the task as actually posed,
+F dominates E on both axes that matter.
+
+What makes this case diagnostic is that the judge \emph{identifies} the tradeoff
+and then resolves it the wrong way: it writes that ``Model F offers a broader
+selection of names'' before preferring E for being ``richer, more informative.''
+It is trading away five of the requested items in exchange for prose depth the
+user never asked for, and justifying this by reference to a goal it invented
+itself --- ``someone looking to understand \emph{how} these actors started on
+Broadway'' --- which is a rewriting of a request for a list into a request for an
+essay. This is the mechanism by which a length-biased judge inflates a verbose
+model's win rate: not by miscounting content, but by silently substituting
+``more elaborate'' for ``more useful.''
+
+\textbf{Is anything consistently different between model E and model F?}
+
+Yes, and it is completely consistent: \textbf{model E's response is longer than
+model F's on every single one of the 60 comparisons} I collected (30 problems
+$\times$ 2 presentation orders). Measured in output tokens, model E averages
+1547 tokens against model F's 1001 in the first run and 1533 against 1025 in the
+second --- a ratio of roughly $1.5\times$ in both. Qualitatively, model E's
+answers are expansive: they open with a framing paragraph, use section headings
+and bulleted lists, and elaborate each point, whereas model F's answers tend to
+state the requested content and stop.
+
+This has an important consequence for the evaluation: because model E is
+\emph{always} the longer response, ``the judge chose model E'' and ``the judge
+chose the longer response'' are the same event in this dataset. The two
+explanations are perfectly confounded and no amount of analysis of these 60
+comparisons alone can separate them.
+
+\textbf{Is the LLM judge doing a good job?}
+
+No. The judge has a large, measurable \textbf{position bias}, visible in the
+table in part (b): with model E shown first it picks E every single time, and
+with model F shown first it picks E only 37\% of the time. Aggregating over both
+orders, the judge selected \textbf{whichever response was shown first in 49 of 60
+comparisons (82\%)}, against the 50\% a position-indifferent judge would
+produce. A judge whose verdict depends this strongly on an arbitrary
+presentation choice is not measuring response quality reliably, and the 100\%
+win rate obtained from a single fixed order is substantially an artifact of that
+ordering rather than a finding about the models.
+
+\vspace{1em}
+\textbf{(d) Response length versus judge preference}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\textwidth]{judge_length_bias.png}
+\caption{Distribution of response lengths, in output tokens, for the responses
+the judge preferred and the responses it did not, pooled over both presentation
+orders (60 comparisons). Bars are drawn side by side within each bin rather than
+overlaid, so neither group is obscured.}
+\end{figure}
+
+\textbf{Note on the data used.} The problem statement anticipates 30 datapoints
+per histogram, from a single pass over the 30 problems. I have pooled both
+presentation orders instead, giving 60 per histogram, because a single fixed
+order confounds length with position (see part (c)); the pooled version is the
+one that isolates length. For reference, the single-order version is far more
+dramatic --- with model E always shown first the judge picked model E every
+time, so the ``preferred'' histogram would simply be model E's length
+distribution (mean 1547 tokens) and the ``not preferred'' histogram model F's
+(mean 1001), separating almost perfectly with no overlap. No comparison had to
+be discarded: all 60 judge responses yielded an extractable preference.
+
+\textbf{Trends.} In the pooled data the preferred responses are longer on
+average --- mean 1403 tokens versus 1150, a median of 1389 versus 1065 --- and
+the judge picked the longer of the two responses in \textbf{41 of 60
+comparisons (68\%)}. So a length preference is visible, but the two
+distributions overlap heavily; length clearly does not determine the verdict on
+its own. The contrast between this and the single-order result is itself the
+main finding: the apparently overwhelming length effect under a fixed
+presentation order shrinks to a moderate one once position is counterbalanced,
+which means most of the original effect was position, not length.
+
+\textbf{Do I trust this evaluation as a proxy for user preference?}
+
+No, for three reasons that compound.
+
+First, the judge is not order-invariant. It favours the first-presented response
+82\% of the time, so a quantity as arbitrary as which response I happened to
+paste first moves the headline win rate from 100\% to 37\%. Any single-order win
+rate --- including the 100\% I originally measured --- is therefore not a
+property of the models being compared.
+
+Second, even after counterbalancing removes the position effect, the residual
+signal cannot be interpreted as quality. Model E is the longer response in all
+60 comparisons, so its remaining 68\% win rate is equally consistent with ``E is
+genuinely better'' and with ``the judge rewards length.'' Distinguishing these
+would require comparisons in which the terser response is sometimes the longer
+one --- for instance by varying verbosity independently of model identity, or by
+truncating and padding responses to equalise length.
+
+Third, none of this is evidence about human preference at all. Longer, heavily
+formatted answers are exactly the kind of output an LLM judge rewards, but real
+users frequently prefer a direct answer to a well-organised essay, particularly
+for the short factual requests that make up much of AlpacaEval. Validating this
+pipeline would require collecting actual human preferences on the same 30
+problems and measuring how often the judge agrees --- which is what part (c)
+begins to do on a very small scale, and my own disagreements there are a first
+indication that judge preference and human preference come apart.
 
 \end{answer}

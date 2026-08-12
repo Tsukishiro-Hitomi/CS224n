@@ -207,3 +207,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Assignment 4: build artifact from create_submission.sh
+submission.zip
+
+# Assignment 4: human-readable dump of llm_judge_results.jsonl for part 3c;
+# derived from that file, so not worth versioning
+part_c_review.txt
