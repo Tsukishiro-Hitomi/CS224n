@@ -12,14 +12,15 @@ load_dotenv()
 
 # Example usage for students
 def main():
-    project_name = os.getenv("GCP_PROJECT_NAME")
+    api_key = os.getenv("LLM_API_KEY")
+    base_url = os.getenv("LLM_BASE_URL")
     student_email = os.getenv("STUDENT_EMAIL")
 
-    if not project_name or not student_email:
+    if not api_key or not base_url or not student_email:
         print("Error: required environment variables not set!")
         print("Please:")
         print("1. Copy .env.template to .env")
-        print("2. Edit .env to include GCP_PROJECT_NAME and STUDENT_EMAIL")
+        print("2. Edit .env to include LLM_BASE_URL, LLM_API_KEY and STUDENT_EMAIL")
         print("3. Re-run this script")
         return
     

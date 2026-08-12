@@ -5,8 +5,7 @@ import sys
 import hashlib
 import base64
 
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -14,6 +13,9 @@ from dotenv import load_dotenv
 from client.models import Query, QueryResponse
 
 load_dotenv()
+
+# Model name as exposed by the relay endpoint. Override with LLM_MODEL in .env.
+MODEL_NAME = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 
 SAFE_PASSWORD_WORDS = [
     "apple","anchor","bamboo", "beacon","biscuit","breeze","cactus","canvas",
@@ -66,17 +68,17 @@ class GeminiProvider(LLMProvider):
     
     # Model mapping: student-facing letter -> actual gemini model
     MODEL_MAPPING = {
-        "A": "gemini-2.5-flash-lite", 
-        "B": "gemini-2.5-flash-lite", 
-        "C": "gemini-2.5-flash-lite",
-        "D": "gemini-2.5-flash-lite",
-        "E": "gemini-2.5-flash-lite",
-        "F": "gemini-2.5-flash-lite",
-        "Z": "gemini-2.5-flash-lite",
-        "G": "gemini-2.5-flash-lite",
-        "H": "gemini-2.5-flash-lite",
-        "I": "gemini-2.5-flash-lite",
-        "J": "gemini-2.5-flash-lite",
+        "A": MODEL_NAME,
+        "B": MODEL_NAME,
+        "C": MODEL_NAME,
+        "D": MODEL_NAME,
+        "E": MODEL_NAME,
+        "F": MODEL_NAME,
+        "Z": MODEL_NAME,
+        "G": MODEL_NAME,
+        "H": MODEL_NAME,
+        "I": MODEL_NAME,
+        "J": MODEL_NAME,
     }
     
     # System prompts for each model variant (FILL IN YOUR PROMPTS HERE)
@@ -94,22 +96,25 @@ class GeminiProvider(LLMProvider):
         "J": "WW91IGFyZSBhIGhlbHBmdWwgQUkgYXNzaXN0YW50Lg=="
     }
 
+    # Google list prices per 1M tokens. A relay endpoint may bill differently,
+    # so the reported cost is an estimate, not what you are actually charged.
     PRICING = {
-        "gemini-2.5-flash-lite": {"input": 0.1, "output": 0.4},  # $0.1/$0.6 per 1M tokens
+        "google/gemini-2.5-flash": {"input": 0.3, "output": 2.5},
+        "google/gemini-2.5-flash-lite": {"input": 0.1, "output": 0.4},
     }
-    
+
     def __init__(self):
         super().__init__()
 
-        project_name = os.getenv("GCP_PROJECT_NAME")
-        if project_name is None:
-            raise ValueError("GCP_PROJECT_NAME is not set in the environment variables. Make sure to copy the .env.template file to .env and fill in the GCP_PROJECT_NAME.")
+        api_key = os.getenv("LLM_API_KEY")
+        if api_key is None:
+            raise ValueError("LLM_API_KEY is not set in the environment variables. Make sure to copy the .env.template file to .env and fill in the LLM_API_KEY.")
 
-        self.client = genai.Client(
-            vertexai=True,
-            project=project_name,
-            location="us-central1",
-        )
+        base_url = os.getenv("LLM_BASE_URL")
+        if base_url is None:
+            raise ValueError("LLM_BASE_URL is not set in the environment variables. Make sure to copy the .env.template file to .env and fill in the LLM_BASE_URL.")
+
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
     
     def query(self, model_id: str, query: Query) -> QueryResponse:
         if model_id not in self.__class__.get_supported_models():
@@ -130,38 +135,29 @@ class GeminiProvider(LLMProvider):
             password = deterministic_password(student_email, model_id)
             system_prompt = system_prompt + f" {password}"
 
-        # Convert query format to Gemini format with system prompt
-        generation_config = types.GenerateContentConfig(
-            system_instruction=system_prompt
-        )
-
-        contents = []
+        # Convert query format to chat-completions messages with system prompt
+        messages = [{"role": "system", "content": system_prompt}]
         for turn in query.turns:
             for role, content in turn.items():
 
                 if role not in ["user", "assistant"]:
                     raise ValueError(f"Invalid role in query: {role}. Role must be one of 'user' or 'assistant'.")
 
-                gemini_role = "model" if role == "assistant" else "user"
-                contents.append(
-                    types.Content(role=gemini_role, parts=[types.Part(text=content)])
-                )
+                messages.append({"role": role, "content": content})
 
-        
+
         try:
-            response = self.client.models.generate_content(
+            response = self.client.chat.completions.create(
                 model=actual_model,
-                config=generation_config,
-                contents=contents,
+                messages=messages,
             )
 
-            text = response.text
+            text = response.choices[0].message.content
             if text is None:
                 text = "ERROR: No response from model"
-            
-            input_tokens = response.usage_metadata.prompt_token_count
-            total_tokens = response.usage_metadata.total_token_count
-            output_tokens = total_tokens - input_tokens
+
+            input_tokens = response.usage.prompt_tokens
+            output_tokens = response.usage.completion_tokens
             cost = self.calculate_cost(actual_model, input_tokens, output_tokens)
             
             return QueryResponse(

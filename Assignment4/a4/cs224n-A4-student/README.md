@@ -26,11 +26,13 @@ pip install -r requirements.txt
 
 **Set up your environment:**
 
-This assignment uses **Google Vertex AI (Gemini)** via your local Google Cloud credentials (e.g., `gcloud auth application-default login`).
+This assignment uses **Gemini** through an OpenAI-compatible relay endpoint.
 
 Create a local `.env` file (or export env vars in your shell) with:
 
-- `GCP_PROJECT_NAME`: your GCP project ID (e.g., `hellow-world-485923-x5`) (used to initialize the Vertex AI client)
+- `LLM_BASE_URL`: base URL of the relay, up to and including `/v1`
+- `LLM_API_KEY`: your relay API key
+- `LLM_MODEL`: model name to query (defaults to `gemini-2.5-flash`)
 - `STUDENT_EMAIL`: only needed for models **G/H/I** (used to deterministically seed the per-student password)
 
 For an example see `example_usage.py`.
